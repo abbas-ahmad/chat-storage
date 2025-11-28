@@ -1,0 +1,42 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/${POSTGRES_DB:-ragdb}
+    username: ${POSTGRES_USER:-raguser}
+    password: ${POSTGRES_PASSWORD:-ragpass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false # Disable SQL logging in Docker for cleaner logs
+  autoconfigure:
+    exclude:
+      - org.springdoc.core.configuration.SpringDocConfiguration
+      - org.springdoc.webmvc.ui.SwaggerConfig
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+
+  # OAuth2 configuration for Docker
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://auth-server:9000/oauth2/jwks
