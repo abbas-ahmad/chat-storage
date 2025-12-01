@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/sessions")
 @Tag(name = "Chat Session Management", description = "APIs for managing chat sessions")
+@SecurityRequirement(name = "ApiKeyAuth")
 public class ChatSessionController {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionController.class);

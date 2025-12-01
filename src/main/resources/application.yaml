@@ -21,6 +21,8 @@ spring:
         jwt:
           jwk-set-uri: http://localhost:9000/oauth2/jwks
           issuer-uri: http://localhost:9000
+    api-key: ${SECURITY_API_KEY:api_9f3b2e7a-4d6c-4a1f-8b2e-123456789abc}
+
 management:
   endpoints:
     web:
