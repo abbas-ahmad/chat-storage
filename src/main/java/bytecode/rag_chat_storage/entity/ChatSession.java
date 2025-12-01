@@ -2,7 +2,6 @@ package bytecode.rag_chat_storage.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -56,5 +55,11 @@ public class ChatSession {
     public void removeMessage(ChatMessage message) {
         messages.remove(message);
         message.setChatSession(null);
+    }
+
+    public ChatSession(String userId, String name) {
+        this.userId = userId;
+        this.name = name;
+        this.isFavorite = false;
     }
 }

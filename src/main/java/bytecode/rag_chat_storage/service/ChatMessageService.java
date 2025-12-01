@@ -164,7 +164,9 @@ public class ChatMessageService {
         if (latest) {
             Pageable pageable = PageRequest.of(0, limit);
             List<ChatMessage> messages = chatMessageRepository.findLatestByChatSession(session, pageable);
-            return messages.stream().map(ChatMessageDto::new).collect(Collectors.toList());
+            return messages.stream()
+                    .map(ChatMessageDto::new)
+                    .collect(Collectors.toList());
         }
 
         // If senderType is specified, filter by senderType
@@ -176,7 +178,9 @@ public class ChatMessageService {
                 throw new ResourceNotFoundException("Invalid senderType: " + senderType);
             }
             List<ChatMessage> messages = chatMessageRepository.findByChatSessionAndSenderTypeOrderByCreatedAtAsc(session, type);
-            return messages.stream().map(ChatMessageDto::new).collect(Collectors.toList());
+            return messages.stream()
+                    .map(ChatMessageDto::new)
+                    .collect(Collectors.toList());
         }
 
         // Default: paginated messages

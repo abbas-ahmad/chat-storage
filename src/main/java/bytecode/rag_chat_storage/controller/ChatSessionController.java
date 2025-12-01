@@ -2,7 +2,6 @@ package bytecode.rag_chat_storage.controller;
 
 import bytecode.rag_chat_storage.dto.ChatSessionDto;
 import bytecode.rag_chat_storage.dto.CreateChatSessionRequest;
-import bytecode.rag_chat_storage.dto.SessionStatsDto;
 import bytecode.rag_chat_storage.dto.UpdateChatSessionRequest;
 import bytecode.rag_chat_storage.service.ChatSessionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +18,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/sessions")
