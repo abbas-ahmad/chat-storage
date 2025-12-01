@@ -5,9 +5,9 @@ import bytecode.rag_chat_storage.dto.*;
 import bytecode.rag_chat_storage.entity.ChatSession;
 import bytecode.rag_chat_storage.exception.ResourceNotFoundException;
 import bytecode.rag_chat_storage.repository.ChatSessionRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -17,17 +17,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 @Service
 @Transactional
 public class ChatSessionService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionService.class);
 
-    @Autowired
-    private ChatSessionRepository chatSessionRepository;
-
-    @Autowired
-    private ChatMessageService chatMessageService;
+    private final ChatSessionRepository chatSessionRepository;
+    private final ChatMessageService chatMessageService;
 
     /**
      * Create a new chat session
@@ -42,29 +40,6 @@ public class ChatSessionService {
         return new ChatSessionDto(savedSession);
     }
 
-    /**
-     * Get all chat sessions for a user
-     */
-    public List<ChatSessionDto> getAllChatSessions(String userId) {
-        logger.info("Retrieving all chat sessions for user: {}", userId);
-        
-        List<ChatSession> sessions = chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId);
-        return sessions.stream()
-                .map(ChatSessionDto::new)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get chat sessions with pagination
-     */
-    public Page<ChatSessionDto> getChatSessions(String userId, int page, int size) {
-        logger.info("Retrieving chat sessions for user: {} with pagination - page: {}, size: {}", userId, page, size);
-        
-        Pageable pageable = PageRequest.of(page, size);
-        Page<ChatSession> sessions = chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable);
-        
-        return sessions.map(ChatSessionDto::new);
-    }
 
     /**
      * Get a specific chat session by ID
@@ -136,45 +111,34 @@ public class ChatSessionService {
     }
 
     /**
-     * Get favorite chat sessions for a user
+     * Get chat sessions with filtering, pagination, and optional stats
      */
-    public List<ChatSessionDto> getFavoriteChatSessions(String userId) {
-        logger.info("Retrieving favorite chat sessions for user: {}", userId);
-        
-        List<ChatSession> sessions = chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId);
-        return sessions.stream()
+
+    public Object getSessions(String userId, int limit, int offset, Boolean favorite, String search, boolean includeStats) {
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        Page<ChatSession> sessionsPage;
+        // Filtering logic
+        if (favorite != null && favorite) {
+            if (search != null && !search.isEmpty()) {
+                sessionsPage = chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+            } else {
+                sessionsPage = chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
+            }
+        } else if (search != null && !search.isEmpty()) {
+            sessionsPage = chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
+        } else {
+            sessionsPage = chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+        }
+        List<ChatSessionDto> sessionDtos = sessionsPage.getContent().stream()
                 .map(ChatSessionDto::new)
                 .collect(Collectors.toList());
-    }
-
-    /**
-     * Search chat sessions by name
-     */
-    public List<ChatSessionDto> searchChatSessions(String userId, String searchTerm) {
-        logger.info("Searching chat sessions for user: {} with term: {}", userId, searchTerm);
-        
-        List<ChatSession> sessions = chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, searchTerm);
-        return sessions.stream()
-                .map(ChatSessionDto::new)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get session statistics for a user
-     */
-    public SessionStatsDto getSessionStats(String userId) {
-        logger.info("Retrieving session statistics for user: {}", userId);
-        
-        long totalSessions = chatSessionRepository.countByUserId(userId);
-        long favoriteSessions = chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId);
-        
-        return new SessionStatsDto(totalSessions, favoriteSessions);
-    }
-
-    /**
-     * Check if a chat session exists for a user
-     */
-    public boolean existsChatSession(String userId, Long sessionId) {
-        return chatSessionRepository.existsByIdAndUserId(sessionId, userId);
+        if (includeStats) {
+            long totalSessions = chatSessionRepository.countByUserId(userId);
+            long favoriteSessions = chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId);
+            SessionStatsDto stats = new SessionStatsDto(totalSessions, favoriteSessions);
+            return new ChatSessionListResponse(sessionDtos, stats, sessionsPage.getTotalPages(), sessionsPage.getTotalElements());
+        } else {
+            return sessionDtos;
+        }
     }
 }
