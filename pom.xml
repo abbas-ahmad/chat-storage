@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>bytecode</groupId>
-	<artifactId>rag-chat-storage</artifactId>
+	<artifactId>chat-storage</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>rag-chat-storage</name>
 	<description>Demo project for Spring Boot</description>
