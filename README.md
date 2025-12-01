@@ -181,5 +181,25 @@ java -jar target/rag-chat-storage-0.0.1-SNAPSHOT.jar
 ---
 
 ## Environment Variables
-See `.env.example` for all required environment variables.
 
+The application can be configured using the following environment variables (see `.env.example`):
+
+| Variable                        | Description                                 | Default Value                |
+|----------------------------------|---------------------------------------------|------------------------------|
+| PORT                            | Application port                            | 8080                         |
+| POSTGRES_DB                     | PostgreSQL database name                    | chatdb                       |
+| POSTGRES_USER                   | PostgreSQL username                         | postgres                     |
+| POSTGRES_PASSWORD               | PostgreSQL password                         | postgres                     |
+| SPRING_DATASOURCE_URL           | JDBC URL for database                       | jdbc:postgresql://localhost:5432/chatdb |
+| SPRING_DATASOURCE_USERNAME      | DB username                                 | postgres                     |
+| SPRING_DATASOURCE_PASSWORD      | DB password                                 | postgres                     |
+| SECURITY_API_KEY                | API key for authentication                  | api_9f3b2e7a-4d6c-4a1f-8b2e-123456789abc |
+| RATE_LIMIT_REQUESTS_PER_MINUTE  | Requests allowed per minute per user        | 60                           |
+
+---
+
+## Health Check
+- **Spring Actuator**: `/actuator/health` (default)
+- **Custom Endpoint**: `/health` (returns `{ "status": "UP" }`)
+
+---
