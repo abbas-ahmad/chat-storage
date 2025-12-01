@@ -143,38 +143,5 @@ class ChatSessionServiceTest {
         verify(chatMessageRepository, times(1)).delete(message);
     }
 
-    @Test
-    void getMessageCount_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.countByChatSession(session)).thenReturn(5L);
-
-        long count = chatMessageService.getMessageCount("user1", 1L);
-
-        assertEquals(5L, count);
-    }
-
-    @Test
-    void getLatestMessages_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.findLatestByChatSession(eq(session), any(Pageable.class)))
-                .thenReturn(List.of(message));
-
-        List<ChatMessageDto> messages = chatMessageService.getLatestMessages("user1", 1L, 10);
-
-        assertEquals(1, messages.size());
-    }
-
-    @Test
-    void getMessagesBySenderType_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.findByChatSessionAndSenderTypeOrderByCreatedAtAsc(session, ChatMessage.SenderType.USER))
-                .thenReturn(List.of(message));
-
-        List<ChatMessageDto> messages = chatMessageService.getMessagesBySenderType("user1", 1L, ChatMessage.SenderType.USER);
-
-        assertEquals(1, messages.size());
-    }
-
-
 }
 

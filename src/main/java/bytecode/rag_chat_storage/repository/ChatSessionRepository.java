@@ -60,4 +60,9 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> 
      */
     @Query("SELECT cs FROM ChatSession cs WHERE cs.userId = :userId AND LOWER(cs.name) LIKE LOWER(CONCAT('%', :searchTerm, '%')) ORDER BY cs.updatedAt DESC")
     Page<ChatSession> findByUserIdAndNameContainingIgnoreCase(@Param("userId") String userId, @Param("searchTerm") String searchTerm, Pageable pageable);
+
+    Page<ChatSession> findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(String userId, String name, Pageable pageable);
+    Page<ChatSession> findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(String userId, Pageable pageable);
+    Page<ChatSession> findByUserIdAndIsFavoriteTrue(String userId, Pageable pageable);
+    Page<ChatSession> findByUserId(String userId, Pageable pageable);
 }

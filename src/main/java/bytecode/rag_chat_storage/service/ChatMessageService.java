@@ -8,9 +8,9 @@ import bytecode.rag_chat_storage.entity.ChatSession;
 import bytecode.rag_chat_storage.exception.ResourceNotFoundException;
 import bytecode.rag_chat_storage.repository.ChatMessageRepository;
 import bytecode.rag_chat_storage.repository.ChatSessionRepository;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -20,17 +20,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 @Service
 @Transactional
 public class ChatMessageService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageService.class);
-
-    @Autowired
-    private ChatMessageRepository chatMessageRepository;
-
-    @Autowired
-    private ChatSessionRepository chatSessionRepository;
+    private final ChatMessageRepository chatMessageRepository;
+    private final ChatSessionRepository chatSessionRepository;
 
     /**
      * Add a new message to a chat session
@@ -151,48 +148,40 @@ public class ChatMessageService {
     }
 
     /**
-     * Get message count for a chat session
+     * Consolidated getMessages method supporting pagination, senderType, latest, and countOnly
      */
-    public long getMessageCount(String userId, Long sessionId) {
+    public Object getMessages(String userId, Long sessionId, int limit, int offset, String senderType, boolean latest, boolean countOnly) {
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
-        return chatMessageRepository.countByChatSession(session);
-    }
 
-    /**
-     * Get latest messages for a chat session
-     */
-    public List<ChatMessageDto> getLatestMessages(String userId, Long sessionId, int limit) {
-        logger.info("Retrieving latest {} messages for session: {} for user: {}", limit, sessionId, userId);
-        
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
-        Pageable pageable = PageRequest.of(0, limit);
-        List<ChatMessage> messages = chatMessageRepository.findLatestByChatSession(session, pageable);
-        
-        return messages.stream()
-                .map(ChatMessageDto::new)
-                .collect(Collectors.toList());
-    }
+        // If countOnly, return count
+        if (countOnly) {
+            return chatMessageRepository.countByChatSession(session);
+        }
 
-    /**
-     * Get messages by sender type for a session
-     */
-    public List<ChatMessageDto> getMessagesBySenderType(String userId, Long sessionId, ChatMessage.SenderType senderType) {
-        logger.info("Retrieving {} messages for session: {} for user: {}", senderType, sessionId, userId);
-        
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
-        List<ChatMessage> messages = chatMessageRepository.findByChatSessionAndSenderTypeOrderByCreatedAtAsc(session, senderType);
-        
-        return messages.stream()
-                .map(ChatMessageDto::new)
-                .collect(Collectors.toList());
+        // If latest, return latest N messages
+        if (latest) {
+            Pageable pageable = PageRequest.of(0, limit);
+            List<ChatMessage> messages = chatMessageRepository.findLatestByChatSession(session, pageable);
+            return messages.stream().map(ChatMessageDto::new).collect(Collectors.toList());
+        }
+
+        // If senderType is specified, filter by senderType
+        if (senderType != null) {
+            ChatMessage.SenderType type;
+            try {
+                type = ChatMessage.SenderType.valueOf(senderType);
+            } catch (IllegalArgumentException e) {
+                throw new ResourceNotFoundException("Invalid senderType: " + senderType);
+            }
+            List<ChatMessage> messages = chatMessageRepository.findByChatSessionAndSenderTypeOrderByCreatedAtAsc(session, type);
+            return messages.stream().map(ChatMessageDto::new).collect(Collectors.toList());
+        }
+
+        // Default: paginated messages
+        Pageable pageable = PageRequest.of(offset / limit, limit);
+        Page<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session, pageable);
+        return messages.map(ChatMessageDto::new);
     }
 }
