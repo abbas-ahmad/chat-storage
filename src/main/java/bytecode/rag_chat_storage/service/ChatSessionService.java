@@ -32,10 +32,10 @@ public class ChatSessionService {
      */
     public ChatSessionDto createChatSession(String userId, CreateChatSessionRequest request) {
         logger.info("Creating new chat session for user: {}", userId);
-        
+
         ChatSession chatSession = new ChatSession(userId, request.getName());
         ChatSession savedSession = chatSessionRepository.save(chatSession);
-        
+
         logger.info("Created chat session with ID: {} for user: {}", savedSession.getId(), userId);
         return new ChatSessionDto(savedSession);
     }
@@ -46,16 +46,16 @@ public class ChatSessionService {
      */
     public ChatSessionDto getChatSession(String userId, Long sessionId) {
         logger.info("Retrieving chat session: {} for user: {}", sessionId, userId);
-        
+
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         ChatSessionDto sessionDto = new ChatSessionDto(session);
-        
+
         // Load messages for the session
         List<ChatMessageDto> messages = chatMessageService.getMessagesBySessionId(userId, sessionId);
         sessionDto.setMessages(messages);
-        
+
         return sessionDto;
     }
 
@@ -64,13 +64,13 @@ public class ChatSessionService {
      */
     public ChatSessionDto updateChatSession(String userId, Long sessionId, UpdateChatSessionRequest request) {
         logger.info("Updating chat session: {} for user: {}", sessionId, userId);
-        
+
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         session.setName(request.getName());
         ChatSession updatedSession = chatSessionRepository.save(session);
-        
+
         logger.info("Updated chat session: {} for user: {}", sessionId, userId);
         return new ChatSessionDto(updatedSession);
     }
@@ -80,15 +80,15 @@ public class ChatSessionService {
      */
     public ChatSessionDto toggleFavorite(String userId, Long sessionId) {
         logger.info("Toggling favorite status for chat session: {} for user: {}", sessionId, userId);
-        
+
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         session.setIsFavorite(!session.getIsFavorite());
         ChatSession updatedSession = chatSessionRepository.save(session);
-        
-        logger.info("Toggled favorite status for chat session: {} to {} for user: {}", 
-                   sessionId, updatedSession.getIsFavorite(), userId);
+
+        logger.info("Toggled favorite status for chat session: {} to {} for user: {}",
+                sessionId, updatedSession.getIsFavorite(), userId);
         return new ChatSessionDto(updatedSession);
     }
 
@@ -97,16 +97,16 @@ public class ChatSessionService {
      */
     public void deleteChatSession(String userId, Long sessionId) {
         logger.info("Deleting chat session: {} for user: {}", sessionId, userId);
-        
+
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         // Delete all messages first
         chatMessageService.deleteMessagesBySessionId(userId, sessionId);
-        
+
         // Delete the session
         chatSessionRepository.delete(session);
-        
+
         logger.info("Deleted chat session: {} for user: {}", sessionId, userId);
     }
 

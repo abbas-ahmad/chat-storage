@@ -39,7 +39,7 @@ public class ChatMessageController {
             @Parameter(description = "User ID from the authenticated request") @RequestHeader("X-User-ID") String userId,
             @Parameter(description = "Chat session ID") @PathVariable Long sessionId,
             @Valid @RequestBody AddMessageRequest request) {
-        
+
         logger.info("Adding message to session: {} for user: {}", sessionId, userId);
         ChatMessageDto message = chatMessageService.addMessage(userId, sessionId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(message);
@@ -57,7 +57,7 @@ public class ChatMessageController {
             @RequestParam(value = "countOnly", required = false, defaultValue = "false") boolean countOnly) {
 
         logger.info("Retrieving messages for session: {} for user: {} with params - limit: {}, offset: {}, senderType: {}, latest: {}, countOnly: {}",
-                   sessionId, userId, limit, offset, senderType, latest, countOnly);
+                sessionId, userId, limit, offset, senderType, latest, countOnly);
         var result = chatMessageService.getMessages(userId, sessionId, limit, offset, senderType, latest, countOnly);
         return ResponseEntity.ok(result);
     }
@@ -73,7 +73,7 @@ public class ChatMessageController {
             @Parameter(description = "User ID from the authenticated request") @RequestHeader("X-User-ID") String userId,
             @Parameter(description = "Chat session ID") @PathVariable Long sessionId,
             @Parameter(description = "Message ID") @PathVariable Long messageId) {
-        
+
         logger.info("Retrieving message: {} from session: {} for user: {}", messageId, sessionId, userId);
         ChatMessageDto message = chatMessageService.getMessage(userId, sessionId, messageId);
         return ResponseEntity.ok(message);
@@ -90,7 +90,7 @@ public class ChatMessageController {
             @Parameter(description = "User ID from the authenticated request") @RequestHeader("X-User-ID") String userId,
             @Parameter(description = "Chat session ID") @PathVariable Long sessionId,
             @Parameter(description = "Message ID") @PathVariable Long messageId) {
-        
+
         logger.info("Deleting message: {} from session: {} for user: {}", messageId, sessionId, userId);
         chatMessageService.deleteMessage(userId, sessionId, messageId);
         return ResponseEntity.noContent().build();

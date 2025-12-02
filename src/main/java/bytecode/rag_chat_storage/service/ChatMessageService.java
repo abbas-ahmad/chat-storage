@@ -34,23 +34,23 @@ public class ChatMessageService {
      */
     public ChatMessageDto addMessage(String userId, Long sessionId, AddMessageRequest request) {
         logger.info("Adding message to session: {} for user: {}", sessionId, userId);
-        
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         // Create new message
         ChatMessage message = new ChatMessage();
         message.setChatSession(session);
         message.setSenderType(request.getSenderType());
         message.setContent(request.getContent());
         message.setContext(request.getContext());
-        
+
         ChatMessage savedMessage = chatMessageRepository.save(message);
-        
-        logger.info("Added message with ID: {} to session: {} for user: {}", 
-                   savedMessage.getId(), sessionId, userId);
-        
+
+        logger.info("Added message with ID: {} to session: {} for user: {}",
+                savedMessage.getId(), sessionId, userId);
+
         return new ChatMessageDto(savedMessage);
     }
 
@@ -59,13 +59,13 @@ public class ChatMessageService {
      */
     public List<ChatMessageDto> getMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Retrieving messages for session: {} for user: {}", sessionId, userId);
-        
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         List<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session);
-        
+
         return messages.stream()
                 .map(ChatMessageDto::new)
                 .collect(Collectors.toList());
@@ -75,16 +75,16 @@ public class ChatMessageService {
      * Get messages for a chat session with pagination
      */
     public Page<ChatMessageDto> getMessagesBySessionId(String userId, Long sessionId, int page, int size) {
-        logger.info("Retrieving messages for session: {} for user: {} with pagination - page: {}, size: {}", 
-                   sessionId, userId, page, size);
-        
+        logger.info("Retrieving messages for session: {} for user: {} with pagination - page: {}, size: {}",
+                sessionId, userId, page, size);
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         Pageable pageable = PageRequest.of(page, size);
         Page<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session, pageable);
-        
+
         return messages.map(ChatMessageDto::new);
     }
 
@@ -93,19 +93,19 @@ public class ChatMessageService {
      */
     public ChatMessageDto getMessage(String userId, Long sessionId, Long messageId) {
         logger.info("Retrieving message: {} from session: {} for user: {}", messageId, sessionId, userId);
-        
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found with id: " + messageId));
-        
+
         // Verify message belongs to the session
         if (!message.getChatSession().getId().equals(sessionId)) {
             throw new ResourceNotFoundException("Message not found in session: " + sessionId);
         }
-        
+
         return new ChatMessageDto(message);
     }
 
@@ -114,21 +114,21 @@ public class ChatMessageService {
      */
     public void deleteMessage(String userId, Long sessionId, Long messageId) {
         logger.info("Deleting message: {} from session: {} for user: {}", messageId, sessionId, userId);
-        
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         ChatMessage message = chatMessageRepository.findById(messageId)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found with id: " + messageId));
-        
+
         // Verify message belongs to the session
         if (!message.getChatSession().getId().equals(sessionId)) {
             throw new ResourceNotFoundException("Message not found in session: " + sessionId);
         }
-        
+
         chatMessageRepository.delete(message);
-        
+
         logger.info("Deleted message: {} from session: {} for user: {}", messageId, sessionId, userId);
     }
 
@@ -137,13 +137,13 @@ public class ChatMessageService {
      */
     public void deleteMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Deleting all messages for session: {} for user: {}", sessionId, userId);
-        
+
         // Verify session exists and belongs to user
         ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
-        
+
         chatMessageRepository.deleteByChatSession(session);
-        
+
         logger.info("Deleted all messages for session: {} for user: {}", sessionId, userId);
     }
 
