@@ -24,7 +24,6 @@ LICENSE
 Thumbs.db
 
 # Maven
-target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
