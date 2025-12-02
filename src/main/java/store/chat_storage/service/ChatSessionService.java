@@ -33,8 +33,10 @@ public class ChatSessionService {
     public ChatSessionDto createChatSession(String userId, CreateChatSessionRequest request) {
         logger.info("Creating new chat session for user: {}", userId);
 
-        ChatSession chatSession = new ChatSession(userId, request.getName());
-        ChatSession savedSession = chatSessionRepository.save(chatSession);
+        ChatSession savedSession = chatSessionRepository.save(ChatSession.builder()
+                                                                .userId(userId)
+                                                                .name(request.getName())
+                                                                .build());
 
         logger.info("Created chat session with ID: {} for user: {}", savedSession.getId(), userId);
         return new ChatSessionDto(savedSession);
@@ -117,6 +119,7 @@ public class ChatSessionService {
     public Object getSessions(String userId, int limit, int offset, Boolean favorite, String search, boolean includeStats) {
         Pageable pageable = PageRequest.of(offset / limit, limit);
         Page<ChatSession> sessionsPage;
+
         // Filtering logic
         if (favorite != null && favorite) {
             if (search != null && !search.isEmpty()) {
@@ -129,9 +132,11 @@ public class ChatSessionService {
         } else {
             sessionsPage = chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable);
         }
+
         List<ChatSessionDto> sessionDtos = sessionsPage.getContent().stream()
                 .map(ChatSessionDto::new)
                 .collect(Collectors.toList());
+
         if (includeStats) {
             long totalSessions = chatSessionRepository.countByUserId(userId);
             long favoriteSessions = chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId);
