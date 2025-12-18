@@ -36,6 +36,7 @@ public class ChatSessionService {
         ChatSession savedSession = chatSessionRepository.save(ChatSession.builder()
                                                                 .userId(userId)
                                                                 .name(request.getName())
+                                                                .isFavorite(false) // Explicitly set default value
                                                                 .build());
 
         logger.info("Created chat session with ID: {} for user: {}", savedSession.getId(), userId);
