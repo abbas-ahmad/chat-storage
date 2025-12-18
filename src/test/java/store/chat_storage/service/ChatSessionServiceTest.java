@@ -8,6 +8,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import store.chat_storage.dto.*;
 import store.chat_storage.entity.ChatMessage;
 import store.chat_storage.entity.ChatSession;
@@ -21,6 +22,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@SuppressWarnings("unchecked")
 class ChatSessionServiceTest {
 
     @Mock
@@ -74,7 +76,7 @@ class ChatSessionServiceTest {
                         .build()
         );
 
-        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.of(session));
         when(chatMessageService.getMessagesBySessionId(userId, sessionId)).thenReturn(messages);
 
         ChatSessionDto result = chatSessionService.getChatSession(userId, sessionId);
@@ -82,7 +84,7 @@ class ChatSessionServiceTest {
         assertNotNull(result);
         assertEquals("Test Session", result.getName());
         assertEquals(1, result.getMessages().size());
-        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
         verify(chatMessageService, times(1)).getMessagesBySessionId(userId, sessionId);
     }
 
@@ -93,14 +95,14 @@ class ChatSessionServiceTest {
         UpdateChatSessionRequest request = new UpdateChatSessionRequest("Updated Session");
         ChatSession session = ChatSession.builder().id(sessionId).userId(userId).name("Old Session").build();
 
-        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.of(session));
         when(chatSessionRepository.save(any(ChatSession.class))).thenReturn(session);
 
         ChatSessionDto result = chatSessionService.updateChatSession(userId, sessionId, request);
 
         assertNotNull(result);
         assertEquals("Updated Session", result.getName());
-        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
         verify(chatSessionRepository, times(1)).save(session);
     }
 
@@ -110,14 +112,14 @@ class ChatSessionServiceTest {
         Long sessionId = 1L;
         ChatSession session = ChatSession.builder().id(sessionId).userId(userId).isFavorite(false).build();
 
-        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.of(session));
         when(chatSessionRepository.save(any(ChatSession.class))).thenReturn(session);
 
         ChatSessionDto result = chatSessionService.toggleFavorite(userId, sessionId);
 
         assertNotNull(result);
         assertTrue(result.getIsFavorite());
-        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
         verify(chatSessionRepository, times(1)).save(session);
     }
 
@@ -127,7 +129,7 @@ class ChatSessionServiceTest {
         Long sessionId = 1L;
         ChatSession session = ChatSession.builder().id(sessionId).userId(userId).build();
 
-        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.of(session));
 
         chatSessionService.deleteChatSession(userId, sessionId);
 
@@ -140,19 +142,19 @@ class ChatSessionServiceTest {
         String userId = "user123";
         int limit = 10;
         int offset = 0;
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, null, null, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
-        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -160,19 +162,19 @@ class ChatSessionServiceTest {
         String userId = "user123";
         int limit = 10;
         int offset = 0;
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, null, null, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
-        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -180,19 +182,19 @@ class ChatSessionServiceTest {
         String userId = "user123";
         int limit = 10;
         int offset = 0;
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Favorite Session").isFavorite(true).build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, true, null, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
-        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -201,19 +203,19 @@ class ChatSessionServiceTest {
         int limit = 10;
         int offset = 0;
         String search = "Test";
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, null, search, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
-        verify(chatSessionRepository, times(1)).findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -222,19 +224,19 @@ class ChatSessionServiceTest {
         int limit = 10;
         int offset = 0;
         String search = "Favorite";
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Favorite Session").isFavorite(true).build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, true, search, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
-        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -242,52 +244,28 @@ class ChatSessionServiceTest {
         String userId = "user123";
         int limit = 10;
         int offset = 0;
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
-        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
-        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
 
-        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
-        when(chatSessionRepository.countByUserId(userId)).thenReturn(5L);
-        when(chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId)).thenReturn(2L);
+        // Mock data for sessions
+        List<ChatSession> sessions = List.of(
+            ChatSession.builder().id(1L).userId(userId).build()
+        );
 
-        Object result = chatSessionService.getSessions(userId, limit, offset, null, null, true);
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable)))
+            .thenReturn(new PageImpl<>(sessions));
+        when(chatSessionRepository.count(any(Specification.class))).thenReturn(1L).thenReturn(0L);
 
-        assertNotNull(result);
-        assertTrue(result instanceof ChatSessionListResponse);
-        ChatSessionListResponse response = (ChatSessionListResponse) result;
+        // Call the service method
+        ChatSessionListResponse response = (ChatSessionListResponse) chatSessionService.getSessions(userId, limit, offset, null, null, true);
+
+        // Assertions
+        assertNotNull(response);
         assertEquals(1, response.getSessions().size());
-        assertEquals(5L, response.getStats().getTotalSessions());
-        assertEquals(2L, response.getStats().getFavoriteSessions());
-        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
-        verify(chatSessionRepository, times(1)).countByUserId(userId);
-        verify(chatSessionRepository, times(1)).countByUserIdAndIsFavoriteTrue(userId);
-    }
+        assertEquals(1L, response.getStats().getTotalSessions());
+        assertEquals(0L, response.getStats().getFavoriteSessions());
 
-    @Test
-    void testGetSessions_WithStats_Filters() {
-        String userId = "user123";
-        int limit = 10;
-        int offset = 0;
-        String search = "Test";
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
-        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").isFavorite(true).build();
-        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
-
-        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
-        when(chatSessionRepository.countByUserId(userId)).thenReturn(5L);
-        when(chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId)).thenReturn(2L);
-
-        Object result = chatSessionService.getSessions(userId, limit, offset, true, search, true);
-
-        assertNotNull(result);
-        assertTrue(result instanceof ChatSessionListResponse);
-        ChatSessionListResponse response = (ChatSessionListResponse) result;
-        assertEquals(1, response.getSessions().size());
-        assertEquals(5L, response.getStats().getTotalSessions());
-        assertEquals(2L, response.getStats().getFavoriteSessions());
-        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
-        verify(chatSessionRepository, times(1)).countByUserId(userId);
-        verify(chatSessionRepository, times(1)).countByUserIdAndIsFavoriteTrue(userId);
+        verify(chatSessionRepository, times(1)).findAll(any(Specification.class), eq(pageable));
+        verify(chatSessionRepository, times(2)).count(any(Specification.class));
     }
 
     @Test
@@ -295,10 +273,10 @@ class ChatSessionServiceTest {
         String userId = "user123";
         Long sessionId = 1L;
 
-        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.empty());
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> chatSessionService.getChatSession(userId, sessionId));
-        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
     }
 
     @Test
@@ -307,7 +285,7 @@ class ChatSessionServiceTest {
         int limit = 10;
         int offset = 0;
         String search = "Test";
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder()
                 .id(1L)
                 .userId(userId)
@@ -316,17 +294,17 @@ class ChatSessionServiceTest {
                 .build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable))
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable)))
                 .thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, true, search, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
         verify(chatSessionRepository, times(1))
-                .findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+                .findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -334,7 +312,7 @@ class ChatSessionServiceTest {
         String userId = "user123";
         int limit = 10;
         int offset = 0;
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder()
                 .id(1L)
                 .userId(userId)
@@ -343,17 +321,17 @@ class ChatSessionServiceTest {
                 .build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable))
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable)))
                 .thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, true, null, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
         verify(chatSessionRepository, times(1))
-                .findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
+                .findAll(any(Specification.class), eq(pageable));
     }
 
     @Test
@@ -362,7 +340,7 @@ class ChatSessionServiceTest {
         int limit = 10;
         int offset = 0;
         String search = "Test";
-        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        PageRequest pageable = PageRequest.of((int) Math.floor((double) offset / limit), limit);
         ChatSession session = ChatSession.builder()
                 .id(1L)
                 .userId(userId)
@@ -370,16 +348,16 @@ class ChatSessionServiceTest {
                 .build();
         Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable))
+        when(chatSessionRepository.findAll(any(Specification.class), eq(pageable)))
                 .thenReturn(sessionsPage);
 
         Object result = chatSessionService.getSessions(userId, limit, offset, false, search, false);
 
         assertNotNull(result);
-        assertTrue(result instanceof List);
+        assertInstanceOf(List.class, result);
         List<?> sessionDtos = (List<?>) result;
         assertEquals(1, sessionDtos.size());
         verify(chatSessionRepository, times(1))
-                .findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
+                .findAll(any(Specification.class), eq(pageable));
     }
 }

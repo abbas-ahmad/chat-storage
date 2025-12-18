@@ -5,12 +5,14 @@ import store.chat_storage.dto.*;
 import store.chat_storage.entity.ChatSession;
 import store.chat_storage.exception.ResourceNotFoundException;
 import store.chat_storage.repository.ChatSessionRepository;
+import store.chat_storage.specification.ChatSessionSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,8 +52,7 @@ public class ChatSessionService {
     public ChatSessionDto getChatSession(String userId, Long sessionId) {
         logger.info("Retrieving chat session: {} for user: {}", sessionId, userId);
 
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        ChatSession session = findSessionByIdAndUserId(sessionId, userId);
 
         ChatSessionDto sessionDto = new ChatSessionDto(session);
 
@@ -68,8 +69,7 @@ public class ChatSessionService {
     public ChatSessionDto updateChatSession(String userId, Long sessionId, UpdateChatSessionRequest request) {
         logger.info("Updating chat session: {} for user: {}", sessionId, userId);
 
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        ChatSession session = findSessionByIdAndUserId(sessionId, userId);
 
         session.setName(request.getName());
         ChatSession updatedSession = chatSessionRepository.save(session);
@@ -84,8 +84,7 @@ public class ChatSessionService {
     public ChatSessionDto toggleFavorite(String userId, Long sessionId) {
         logger.info("Toggling favorite status for chat session: {} for user: {}", sessionId, userId);
 
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        ChatSession session = findSessionByIdAndUserId(sessionId, userId);
 
         session.setIsFavorite(!session.getIsFavorite());
         ChatSession updatedSession = chatSessionRepository.save(session);
@@ -101,8 +100,7 @@ public class ChatSessionService {
     public void deleteChatSession(String userId, Long sessionId) {
         logger.info("Deleting chat session: {} for user: {}", sessionId, userId);
 
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        ChatSession session = findSessionByIdAndUserId(sessionId, userId);
 
         // Delete all messages first
         chatMessageService.deleteMessagesBySessionId(userId, sessionId);
@@ -119,32 +117,36 @@ public class ChatSessionService {
 
     public Object getSessions(String userId, int limit, int offset, Boolean favorite, String search, boolean includeStats) {
         Pageable pageable = PageRequest.of(offset / limit, limit);
-        Page<ChatSession> sessionsPage;
+        Specification<ChatSession> spec = ChatSessionSpecifications.hasUserId(userId);
 
-        // Filtering logic
         if (favorite != null && favorite) {
-            if (search != null && !search.isEmpty()) {
-                sessionsPage = chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
-            } else {
-                sessionsPage = chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
-            }
-        } else if (search != null && !search.isEmpty()) {
-            sessionsPage = chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
-        } else {
-            sessionsPage = chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+            spec = spec.and(ChatSessionSpecifications.isFavorite());
         }
 
+        if (search != null && !search.isEmpty()) {
+            spec = spec.and(ChatSessionSpecifications.nameContains(search));
+        }
+
+        Page<ChatSession> sessionsPage = chatSessionRepository.findAll(spec, pageable);
         List<ChatSessionDto> sessionDtos = sessionsPage.getContent().stream()
                 .map(ChatSessionDto::new)
                 .collect(Collectors.toList());
 
         if (includeStats) {
-            long totalSessions = chatSessionRepository.countByUserId(userId);
-            long favoriteSessions = chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId);
+            long totalSessions = chatSessionRepository.count(ChatSessionSpecifications.hasUserId(userId));
+            long favoriteSessions = chatSessionRepository.count(spec.and(ChatSessionSpecifications.isFavorite()));
             SessionStatsDto stats = new SessionStatsDto(totalSessions, favoriteSessions);
             return new ChatSessionListResponse(sessionDtos, stats, sessionsPage.getTotalPages(), sessionsPage.getTotalElements());
         } else {
             return sessionDtos;
         }
+    }
+
+    private ChatSession findSessionByIdAndUserId(Long sessionId, String userId) {
+        Specification<ChatSession> spec = ChatSessionSpecifications.hasUserId(userId)
+                .and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("id"), sessionId));
+
+        return chatSessionRepository.findOne(spec)
+                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
     }
 }

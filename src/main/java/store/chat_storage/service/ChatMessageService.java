@@ -8,12 +8,14 @@ import store.chat_storage.entity.ChatSession;
 import store.chat_storage.exception.ResourceNotFoundException;
 import store.chat_storage.repository.ChatMessageRepository;
 import store.chat_storage.repository.ChatSessionRepository;
+import store.chat_storage.specification.ChatMessageSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +38,11 @@ public class ChatMessageService {
         logger.info("Adding message to session: {} for user: {}", sessionId, userId);
 
         // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        logger.debug("Executing Specification to find ChatSession with id: {} and userId: {}", sessionId, userId);
+        ChatSession session = chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
         // Create new message
@@ -60,11 +66,14 @@ public class ChatMessageService {
     public List<ChatMessageDto> getMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Retrieving messages for session: {} for user: {}", sessionId, userId);
 
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
-        List<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session);
+        Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
+        List<ChatMessage> messages = chatMessageRepository.findAll(spec);
 
         return messages.stream()
                 .map(ChatMessageDto::new)
@@ -78,12 +87,15 @@ public class ChatMessageService {
         logger.info("Retrieving messages for session: {} for user: {} with pagination - page: {}, size: {}",
                 sessionId, userId, page, size);
 
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
+        Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
         Pageable pageable = PageRequest.of(page, size);
-        Page<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session, pageable);
+        Page<ChatMessage> messages = chatMessageRepository.findAll(spec, pageable);
 
         return messages.map(ChatMessageDto::new);
     }
@@ -95,16 +107,17 @@ public class ChatMessageService {
         logger.info("Retrieving message: {} from session: {} for user: {}", messageId, sessionId, userId);
 
         // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
-        ChatMessage message = chatMessageRepository.findById(messageId)
+        Specification<ChatMessage> messageSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), messageId),
+                criteriaBuilder.equal(root.get("chatSession"), sessionId));
+        ChatMessage message = chatMessageRepository.findOne(messageSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found with id: " + messageId));
-
-        // Verify message belongs to the session
-        if (!message.getChatSession().getId().equals(sessionId)) {
-            throw new ResourceNotFoundException("Message not found in session: " + sessionId);
-        }
 
         return new ChatMessageDto(message);
     }
@@ -116,16 +129,17 @@ public class ChatMessageService {
         logger.info("Deleting message: {} from session: {} for user: {}", messageId, sessionId, userId);
 
         // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
-        ChatMessage message = chatMessageRepository.findById(messageId)
+        Specification<ChatMessage> messageSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), messageId),
+                criteriaBuilder.equal(root.get("chatSession"), sessionId));
+        ChatMessage message = chatMessageRepository.findOne(messageSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Message not found with id: " + messageId));
-
-        // Verify message belongs to the session
-        if (!message.getChatSession().getId().equals(sessionId)) {
-            throw new ResourceNotFoundException("Message not found in session: " + sessionId);
-        }
 
         chatMessageRepository.delete(message);
 
@@ -138,11 +152,14 @@ public class ChatMessageService {
     public void deleteMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Deleting all messages for session: {} for user: {}", sessionId, userId);
 
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        ChatSession session = chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
-        chatMessageRepository.deleteByChatSession(session);
+        Specification<ChatMessage> deleteSpec = (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("chatSession"), session);
+        chatMessageRepository.deleteAll(chatMessageRepository.findAll(deleteSpec));
 
         logger.info("Deleted all messages for session: {} for user: {}", sessionId, userId);
     }
@@ -151,25 +168,16 @@ public class ChatMessageService {
      * Consolidated getMessages method supporting pagination, senderType, latest, and countOnly
      */
     public Object getMessages(String userId, Long sessionId, int limit, int offset, String senderType, boolean latest, boolean countOnly) {
-        // Verify session exists and belongs to user
-        ChatSession session = chatSessionRepository.findByIdAndUserId(sessionId, userId)
+        logger.info("Creating Specification for ChatSession with id: {} and userId: {}", sessionId, userId);
+        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+        logger.info("Executing Specification to find ChatSession with id: {} and userId: {}", sessionId, userId);
+        chatSessionRepository.findOne(sessionSpec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
 
-        // If countOnly, return count
-        if (countOnly) {
-            return chatMessageRepository.countByChatSession(session);
-        }
+        Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
 
-        // If latest, return latest N messages
-        if (latest) {
-            Pageable pageable = PageRequest.of(0, limit);
-            List<ChatMessage> messages = chatMessageRepository.findLatestByChatSession(session, pageable);
-            return messages.stream()
-                    .map(ChatMessageDto::new)
-                    .collect(Collectors.toList());
-        }
-
-        // If senderType is specified, filter by senderType
         if (senderType != null) {
             ChatMessage.SenderType type;
             try {
@@ -177,15 +185,19 @@ public class ChatMessageService {
             } catch (IllegalArgumentException e) {
                 throw new ResourceNotFoundException("Invalid senderType: " + senderType);
             }
-            List<ChatMessage> messages = chatMessageRepository.findByChatSessionAndSenderTypeOrderByCreatedAtAsc(session, type);
-            return messages.stream()
-                    .map(ChatMessageDto::new)
-                    .collect(Collectors.toList());
+            spec = spec.and(ChatMessageSpecifications.hasSenderType(type));
         }
 
-        // Default: paginated messages
+        if (countOnly) {
+            return chatMessageRepository.count(spec);
+        }
+
         Pageable pageable = PageRequest.of(offset / limit, limit);
-        Page<ChatMessage> messages = chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session, pageable);
+        if (latest) {
+            pageable = PageRequest.of(0, limit, org.springframework.data.domain.Sort.by("createdAt").descending());
+        }
+
+        Page<ChatMessage> messages = chatMessageRepository.findAll(spec, pageable);
         return messages.map(ChatMessageDto::new);
     }
 }
