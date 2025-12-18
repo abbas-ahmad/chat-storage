@@ -1,13 +1,5 @@
 package store.chat_storage.service;
 
-
-import store.chat_storage.dto.AddMessageRequest;
-import store.chat_storage.dto.ChatMessageDto;
-import store.chat_storage.entity.ChatMessage;
-import store.chat_storage.entity.ChatSession;
-import store.chat_storage.exception.ResourceNotFoundException;
-import store.chat_storage.repository.ChatMessageRepository;
-import store.chat_storage.repository.ChatSessionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -15,133 +7,379 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import store.chat_storage.dto.*;
+import store.chat_storage.entity.ChatMessage;
+import store.chat_storage.entity.ChatSession;
+import store.chat_storage.exception.ResourceNotFoundException;
+import store.chat_storage.repository.ChatSessionRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ChatSessionServiceTest {
 
-    @InjectMocks
-    private ChatMessageService chatMessageService;
-
-    @Mock
-    private ChatMessageRepository chatMessageRepository;
-
     @Mock
     private ChatSessionRepository chatSessionRepository;
 
-    private ChatSession session;
-    private ChatMessage message;
+    @Mock
+    private ChatMessageService chatMessageService;
+
+    @InjectMocks
+    private ChatSessionService chatSessionService;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-
-        session = new ChatSession();
-        session.setId(1L);
-        session.setUserId("user1");
-
-        message = new ChatMessage();
-        message.setId(1L);
-        message.setChatSession(session);
-        message.setSenderType(ChatMessage.SenderType.USER);
-        message.setContent("Hello");
     }
 
     @Test
-    void addMessage_success() {
-        AddMessageRequest request = new AddMessageRequest();
-        request.setSenderType(ChatMessage.SenderType.USER);
-        request.setContent("Hello");
+    void testCreateChatSession() {
+        String userId = "user123";
+        CreateChatSessionRequest request = new CreateChatSessionRequest("Test Session");
+        ChatSession savedSession = ChatSession.builder()
+                .id(1L)
+                .userId(userId)
+                .name("Test Session")
+                .build();
 
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1"))
-                .thenReturn(Optional.of(session));
-        when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(message);
+        when(chatSessionRepository.save(any(ChatSession.class))).thenReturn(savedSession);
 
-        ChatMessageDto result = chatMessageService.addMessage("user1", 1L, request);
+        ChatSessionDto result = chatSessionService.createChatSession(userId, request);
 
         assertNotNull(result);
-        assertEquals("Hello", result.getContent());
-        verify(chatMessageRepository, times(1)).save(any(ChatMessage.class));
+        assertEquals("Test Session", result.getName());
+        verify(chatSessionRepository, times(1)).save(any(ChatSession.class));
     }
 
     @Test
-    void addMessage_sessionNotFound() {
-        AddMessageRequest request = new AddMessageRequest();
-        request.setSenderType(ChatMessage.SenderType.USER);
-        request.setContent("Hello");
-
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () ->
-                chatMessageService.addMessage("user1", 1L, request)
+    void testGetChatSession() {
+        String userId = "user123";
+        Long sessionId = 1L;
+        ChatSession session = ChatSession.builder()
+                .id(sessionId)
+                .userId(userId)
+                .name("Test Session")
+                .build();
+        List<ChatMessageDto> messages = Collections.singletonList(
+                ChatMessageDto.builder()
+                        .id(1L)
+                        .chatSessionId(sessionId)
+                        .senderType(ChatMessage.SenderType.USER)
+                        .content("Hello")
+                        .build()
         );
+
+        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatMessageService.getMessagesBySessionId(userId, sessionId)).thenReturn(messages);
+
+        ChatSessionDto result = chatSessionService.getChatSession(userId, sessionId);
+
+        assertNotNull(result);
+        assertEquals("Test Session", result.getName());
+        assertEquals(1, result.getMessages().size());
+        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatMessageService, times(1)).getMessagesBySessionId(userId, sessionId);
     }
 
     @Test
-    void getMessagesBySessionId_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1"))
-                .thenReturn(Optional.of(session));
-        when(chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(session))
-                .thenReturn(List.of(message));
+    void testUpdateChatSession() {
+        String userId = "user123";
+        Long sessionId = 1L;
+        UpdateChatSessionRequest request = new UpdateChatSessionRequest("Updated Session");
+        ChatSession session = ChatSession.builder().id(sessionId).userId(userId).name("Old Session").build();
 
-        List<ChatMessageDto> messages = chatMessageService.getMessagesBySessionId("user1", 1L);
+        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.save(any(ChatSession.class))).thenReturn(session);
 
-        assertEquals(1, messages.size());
-        assertEquals("Hello", messages.get(0).getContent());
+        ChatSessionDto result = chatSessionService.updateChatSession(userId, sessionId, request);
+
+        assertNotNull(result);
+        assertEquals("Updated Session", result.getName());
+        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).save(session);
     }
 
     @Test
-    void getMessagesBySessionId_paginated() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        Page<ChatMessage> page = new PageImpl<>(List.of(message));
-        when(chatMessageRepository.findByChatSessionOrderByCreatedAtAsc(eq(session), any(Pageable.class)))
-                .thenReturn(page);
+    void testToggleFavorite() {
+        String userId = "user123";
+        Long sessionId = 1L;
+        ChatSession session = ChatSession.builder().id(sessionId).userId(userId).isFavorite(false).build();
 
-        Page<ChatMessageDto> result = chatMessageService.getMessagesBySessionId("user1", 1L, 0, 10);
+        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
+        when(chatSessionRepository.save(any(ChatSession.class))).thenReturn(session);
 
-        assertEquals(1, result.getContent().size());
-        assertEquals("Hello", result.getContent().get(0).getContent());
+        ChatSessionDto result = chatSessionService.toggleFavorite(userId, sessionId);
+
+        assertNotNull(result);
+        assertTrue(result.getIsFavorite());
+        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+        verify(chatSessionRepository, times(1)).save(session);
     }
 
     @Test
-    void getMessage_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.findById(1L)).thenReturn(Optional.of(message));
+    void testDeleteChatSession() {
+        String userId = "user123";
+        Long sessionId = 1L;
+        ChatSession session = ChatSession.builder().id(sessionId).userId(userId).build();
 
-        ChatMessageDto result = chatMessageService.getMessage("user1", 1L, 1L);
+        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.of(session));
 
-        assertEquals("Hello", result.getContent());
+        chatSessionService.deleteChatSession(userId, sessionId);
+
+        verify(chatMessageService, times(1)).deleteMessagesBySessionId(userId, sessionId);
+        verify(chatSessionRepository, times(1)).delete(session);
     }
 
     @Test
-    void getMessage_messageNotInSession() {
-        ChatSession otherSession = new ChatSession();
-        otherSession.setId(2L);
-        message.setChatSession(otherSession);
+    void testGetSessions() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.findById(1L)).thenReturn(Optional.of(message));
+        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
 
-        assertThrows(ResourceNotFoundException.class, () ->
-                chatMessageService.getMessage("user1", 1L, 1L)
-        );
+        Object result = chatSessionService.getSessions(userId, limit, offset, null, null, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
     }
 
     @Test
-    void deleteMessage_success() {
-        when(chatSessionRepository.findByIdAndUserId(1L, "user1")).thenReturn(Optional.of(session));
-        when(chatMessageRepository.findById(1L)).thenReturn(Optional.of(message));
+    void testGetSessions_NoFilters_NoStats() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
 
-        chatMessageService.deleteMessage("user1", 1L, 1L);
+        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
 
-        verify(chatMessageRepository, times(1)).delete(message);
+        Object result = chatSessionService.getSessions(userId, limit, offset, null, null, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
     }
 
+    @Test
+    void testGetSessions_FavoriteFilter() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Favorite Session").isFavorite(true).build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, true, null, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
+    }
+
+    @Test
+    void testGetSessions_SearchFilter() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        String search = "Test";
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, null, search, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1)).findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
+    }
+
+    @Test
+    void testGetSessions_FavoriteAndSearchFilter() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        String search = "Favorite";
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Favorite Session").isFavorite(true).build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, true, search, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+    }
+
+    @Test
+    void testGetSessions_WithStats_NoFilters() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdOrderByUpdatedAtDesc(userId, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.countByUserId(userId)).thenReturn(5L);
+        when(chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId)).thenReturn(2L);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, null, null, true);
+
+        assertNotNull(result);
+        assertTrue(result instanceof ChatSessionListResponse);
+        ChatSessionListResponse response = (ChatSessionListResponse) result;
+        assertEquals(1, response.getSessions().size());
+        assertEquals(5L, response.getStats().getTotalSessions());
+        assertEquals(2L, response.getStats().getFavoriteSessions());
+        verify(chatSessionRepository, times(1)).findByUserIdOrderByUpdatedAtDesc(userId, pageable);
+        verify(chatSessionRepository, times(1)).countByUserId(userId);
+        verify(chatSessionRepository, times(1)).countByUserIdAndIsFavoriteTrue(userId);
+    }
+
+    @Test
+    void testGetSessions_WithStats_Filters() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        String search = "Test";
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder().id(1L).userId(userId).name("Test Session").isFavorite(true).build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable)).thenReturn(sessionsPage);
+        when(chatSessionRepository.countByUserId(userId)).thenReturn(5L);
+        when(chatSessionRepository.countByUserIdAndIsFavoriteTrue(userId)).thenReturn(2L);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, true, search, true);
+
+        assertNotNull(result);
+        assertTrue(result instanceof ChatSessionListResponse);
+        ChatSessionListResponse response = (ChatSessionListResponse) result;
+        assertEquals(1, response.getSessions().size());
+        assertEquals(5L, response.getStats().getTotalSessions());
+        assertEquals(2L, response.getStats().getFavoriteSessions());
+        verify(chatSessionRepository, times(1)).findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+        verify(chatSessionRepository, times(1)).countByUserId(userId);
+        verify(chatSessionRepository, times(1)).countByUserIdAndIsFavoriteTrue(userId);
+    }
+
+    @Test
+    void testGetChatSession_NotFound() {
+        String userId = "user123";
+        Long sessionId = 1L;
+
+        when(chatSessionRepository.findByIdAndUserId(sessionId, userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> chatSessionService.getChatSession(userId, sessionId));
+        verify(chatSessionRepository, times(1)).findByIdAndUserId(sessionId, userId);
+    }
+
+    @Test
+    void testGetSessions_FavoriteTrue_SearchNotEmpty() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        String search = "Test";
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder()
+                .id(1L)
+                .userId(userId)
+                .name("Test Session")
+                .isFavorite(true)
+                .build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable))
+                .thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, true, search, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1))
+                .findByUserIdAndIsFavoriteTrueAndNameContainingIgnoreCase(userId, search, pageable);
+    }
+
+    @Test
+    void testGetSessions_FavoriteTrue_SearchEmpty() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder()
+                .id(1L)
+                .userId(userId)
+                .name("Favorite Session")
+                .isFavorite(true)
+                .build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable))
+                .thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, true, null, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1))
+                .findByUserIdAndIsFavoriteTrueOrderByUpdatedAtDesc(userId, pageable);
+    }
+
+    @Test
+    void testGetSessions_FavoriteFalse_SearchNotEmpty() {
+        String userId = "user123";
+        int limit = 10;
+        int offset = 0;
+        String search = "Test";
+        PageRequest pageable = PageRequest.of(offset / limit, limit);
+        ChatSession session = ChatSession.builder()
+                .id(1L)
+                .userId(userId)
+                .name("Test Session")
+                .build();
+        Page<ChatSession> sessionsPage = new PageImpl<>(Collections.singletonList(session), pageable, 1);
+
+        when(chatSessionRepository.findByUserIdAndNameContainingIgnoreCase(userId, search, pageable))
+                .thenReturn(sessionsPage);
+
+        Object result = chatSessionService.getSessions(userId, limit, offset, false, search, false);
+
+        assertNotNull(result);
+        assertTrue(result instanceof List);
+        List<?> sessionDtos = (List<?>) result;
+        assertEquals(1, sessionDtos.size());
+        verify(chatSessionRepository, times(1))
+                .findByUserIdAndNameContainingIgnoreCase(userId, search, pageable);
+    }
 }
-
