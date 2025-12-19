@@ -29,7 +29,7 @@ class ChatSessionServiceTest {
     private ChatSessionRepository chatSessionRepository;
 
     @Mock
-    private ChatMessageService chatMessageService;
+    private IChatMessageService chatMessageService;
 
     @InjectMocks
     private ChatSessionService chatSessionService;

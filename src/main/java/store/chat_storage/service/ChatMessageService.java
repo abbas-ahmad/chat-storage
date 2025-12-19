@@ -25,11 +25,24 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Service
 @Transactional
-public class ChatMessageService {
+public class ChatMessageService implements IChatMessageService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatMessageService.class);
     private final ChatMessageRepository chatMessageRepository;
     private final ChatSessionRepository chatSessionRepository;
+
+    private Specification<ChatSession> getSessionSpecification(String userId, Long sessionId) {
+        return (root, query, criteriaBuilder) -> criteriaBuilder.and(
+                criteriaBuilder.equal(root.get("id"), sessionId),
+                criteriaBuilder.equal(root.get("userId"), userId));
+    }
+
+    private ChatSession validateSession(String userId, Long sessionId) {
+        Specification<ChatSession> sessionSpec = getSessionSpecification(userId, sessionId);
+        logger.debug("Validating session with id: {} for user: {}", sessionId, userId);
+        return chatSessionRepository.findOne(sessionSpec)
+                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+    }
 
     /**
      * Add a new message to a chat session
@@ -37,13 +50,7 @@ public class ChatMessageService {
     public ChatMessageDto addMessage(String userId, Long sessionId, AddMessageRequest request) {
         logger.info("Adding message to session: {} for user: {}", sessionId, userId);
 
-        // Verify session exists and belongs to user
-        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
-                criteriaBuilder.equal(root.get("id"), sessionId),
-                criteriaBuilder.equal(root.get("userId"), userId));
-        logger.debug("Executing Specification to find ChatSession with id: {} and userId: {}", sessionId, userId);
-        ChatSession session = chatSessionRepository.findOne(sessionSpec)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        ChatSession session = validateSession(userId, sessionId);
 
         // Create new message
         ChatMessage message = new ChatMessage();
@@ -51,6 +58,11 @@ public class ChatMessageService {
         message.setSenderType(request.getSenderType());
         message.setContent(request.getContent());
         message.setContext(request.getContext());
+
+        if (request.getSenderType() == null) {
+            logger.error("Sender type is null for user: {} in session: {}", userId, sessionId);
+            throw new IllegalArgumentException("Sender type must not be null");
+        }
 
         ChatMessage savedMessage = chatMessageRepository.save(message);
 
@@ -66,11 +78,7 @@ public class ChatMessageService {
     public List<ChatMessageDto> getMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Retrieving messages for session: {} for user: {}", sessionId, userId);
 
-        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
-                criteriaBuilder.equal(root.get("id"), sessionId),
-                criteriaBuilder.equal(root.get("userId"), userId));
-        chatSessionRepository.findOne(sessionSpec)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        validateSession(userId, sessionId);
 
         Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
         List<ChatMessage> messages = chatMessageRepository.findAll(spec);
@@ -87,11 +95,7 @@ public class ChatMessageService {
         logger.info("Retrieving messages for session: {} for user: {} with pagination - page: {}, size: {}",
                 sessionId, userId, page, size);
 
-        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
-                criteriaBuilder.equal(root.get("id"), sessionId),
-                criteriaBuilder.equal(root.get("userId"), userId));
-        chatSessionRepository.findOne(sessionSpec)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        validateSession(userId, sessionId);
 
         Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
         Pageable pageable = PageRequest.of(page, size);
@@ -152,14 +156,17 @@ public class ChatMessageService {
     public void deleteMessagesBySessionId(String userId, Long sessionId) {
         logger.info("Deleting all messages for session: {} for user: {}", sessionId, userId);
 
-        Specification<ChatSession> sessionSpec = (root, query, criteriaBuilder) -> criteriaBuilder.and(
-                criteriaBuilder.equal(root.get("id"), sessionId),
-                criteriaBuilder.equal(root.get("userId"), userId));
-        ChatSession session = chatSessionRepository.findOne(sessionSpec)
-                .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+        validateSession(userId, sessionId);
 
-        Specification<ChatMessage> deleteSpec = (root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("chatSession"), session);
-        chatMessageRepository.deleteAll(chatMessageRepository.findAll(deleteSpec));
+        Specification<ChatMessage> spec = ChatMessageSpecifications.hasSessionId(sessionId);
+        List<ChatMessage> messages = chatMessageRepository.findAll(spec);
+
+        if (messages.isEmpty()) {
+            logger.info("No messages found for session: {} for user: {}", sessionId, userId);
+            return;
+        }
+
+        chatMessageRepository.deleteAll(messages);
 
         logger.info("Deleted all messages for session: {} for user: {}", sessionId, userId);
     }

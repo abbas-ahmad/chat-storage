@@ -42,6 +42,7 @@ class ChatMessageServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        chatMessageService = new ChatMessageService(chatMessageRepository, chatSessionRepository);
     }
 
     @Test
@@ -376,5 +377,175 @@ class ChatMessageServiceTest {
 
         // Verify that the repository method was called
         verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
+    }
+
+    @Test
+    void testAddMessage_InvalidSession() {
+        String userId = "user123";
+        Long sessionId = 1L;
+        AddMessageRequest request = new AddMessageRequest(ChatMessage.SenderType.USER, "Hello", null);
+
+        when(chatSessionRepository.findOne(any(Specification.class))).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                chatMessageService.addMessage(userId, sessionId, request));
+
+        verify(chatSessionRepository, times(1)).findOne(any(Specification.class));
+        verify(chatMessageRepository, never()).save(any(ChatMessage.class));
+    }
+
+    @Test
+    void testAddMessage_InvalidSenderType() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+        AddMessageRequest request = new AddMessageRequest();
+        request.setSenderType(null); // Explicitly set senderType to null
+        request.setContent("Test content");
+
+        ChatSession session = new ChatSession();
+        session.setId(sessionId);
+        session.setUserId(userId);
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(session));
+
+        // Act & Assert
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                chatMessageService.addMessage(userId, sessionId, request));
+
+        assertEquals("Sender type must not be null", exception.getMessage());
+    }
+
+    @Test
+    void testGetMessagesBySessionId_NoMessagesScenario1() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.emptyList());
+
+        // Act
+        List<ChatMessageDto> messages = chatMessageService.getMessagesBySessionId(userId, sessionId);
+
+        // Assert
+        assertTrue(messages.isEmpty());
+    }
+
+    @Test
+    void testGetMessagesBySessionId_NoMessagesScenario2() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+        int page = 0;
+        int size = 10;
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        // Act
+        Page<ChatMessageDto> messages = chatMessageService.getMessagesBySessionId(userId, sessionId, page, size);
+
+        // Assert
+        assertTrue(messages.isEmpty());
+    }
+
+    @Test
+    void testGetMessage_NullChatSession() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+        Long messageId = 1L;
+
+        ChatMessage message = new ChatMessage();
+        message.setChatSession(null);
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(message));
+
+        // Act & Assert
+        assertThrows(NullPointerException.class, () ->
+                chatMessageService.getMessage(userId, sessionId, messageId));
+    }
+
+    @Test
+    void testDeleteMessagesBySessionId_NoMessagesScenario() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.findAll(any(Specification.class)))
+                .thenReturn(Collections.emptyList());
+
+        // Act
+        chatMessageService.deleteMessagesBySessionId(userId, sessionId);
+
+        // Assert
+        verify(chatMessageRepository, never()).deleteAll(anyList());
+    }
+
+    @Test
+    void testGetMessages_CountOnly_NoMessages() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.count(any(Specification.class)))
+                .thenReturn(0L);
+
+        // Act
+        Object count = chatMessageService.getMessages(userId, sessionId, 10, 0, null, false, true);
+
+        // Assert
+        assertEquals(0L, count);
+    }
+
+    @Test
+    void testGetMessages_Latest_NoMessages() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+        when(chatMessageRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        // Act
+        Object messages = chatMessageService.getMessages(userId, sessionId, 10, 0, null, true, false);
+
+        // Assert
+        assertTrue(((Page<?>) messages).isEmpty());
+    }
+
+    @Test
+    void testAddMessage_NullSenderType() {
+        // Arrange
+        String userId = "user123";
+        Long sessionId = 1L;
+        AddMessageRequest request = new AddMessageRequest();
+        request.setSenderType(null);
+        request.setContent("Test content");
+        request.setContext("Test context");
+
+        when(chatSessionRepository.findOne(any(Specification.class)))
+                .thenReturn(Optional.of(new ChatSession()));
+
+        // Act & Assert
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                chatMessageService.addMessage(userId, sessionId, request));
+
+        assertEquals("Sender type must not be null", exception.getMessage());
     }
 }

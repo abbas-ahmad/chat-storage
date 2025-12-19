@@ -3,7 +3,7 @@ package store.chat_storage.controller;
 import store.chat_storage.dto.ChatSessionDto;
 import store.chat_storage.dto.CreateChatSessionRequest;
 import store.chat_storage.dto.UpdateChatSessionRequest;
-import store.chat_storage.service.ChatSessionService;
+import store.chat_storage.service.IChatSessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ChatSessionController {
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionController.class);
-    private final ChatSessionService chatSessionService;
+    private final IChatSessionService chatSessionService;
 
     @PostMapping
     @Operation(summary = "Create a new chat session", description = "Creates a new chat session for the authenticated user")

@@ -17,17 +17,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
 @Transactional
-public class ChatSessionService {
+public class ChatSessionService implements IChatSessionService {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatSessionService.class);
 
     private final ChatSessionRepository chatSessionRepository;
-    private final ChatMessageService chatMessageService;
+    private final IChatMessageService chatMessageService;
 
     /**
      * Create a new chat session
@@ -148,5 +149,10 @@ public class ChatSessionService {
 
         return chatSessionRepository.findOne(spec)
                 .orElseThrow(() -> new ResourceNotFoundException("Chat session not found with id: " + sessionId));
+    }
+
+    @Override
+    public Optional<ChatSession> findOne(Specification<ChatSession> specification) {
+        return chatSessionRepository.findOne(specification);
     }
 }
