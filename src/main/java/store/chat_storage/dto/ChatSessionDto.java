@@ -36,7 +36,7 @@ public class ChatSessionDto {
         this.id = chatSession.getId();
         this.userId = chatSession.getUserId();
         this.name = chatSession.getName();
-        this.isFavorite = chatSession.getIsFavorite();
+        this.isFavorite = chatSession.isFavorite();
         this.createdAt = chatSession.getCreatedAt();
         this.updatedAt = chatSession.getUpdatedAt();
     }

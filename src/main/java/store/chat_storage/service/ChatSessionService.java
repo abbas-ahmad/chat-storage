@@ -87,11 +87,11 @@ public class ChatSessionService implements IChatSessionService {
 
         ChatSession session = findSessionByIdAndUserId(sessionId, userId);
 
-        session.setIsFavorite(!session.getIsFavorite());
+        session.setFavorite(!session.isFavorite());
         ChatSession updatedSession = chatSessionRepository.save(session);
 
         logger.info("Toggled favorite status for chat session: {} to {} for user: {}",
-                sessionId, updatedSession.getIsFavorite(), userId);
+                sessionId, updatedSession.isFavorite(), userId);
         return new ChatSessionDto(updatedSession);
     }
 

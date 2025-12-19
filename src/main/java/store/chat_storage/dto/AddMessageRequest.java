@@ -21,3 +21,4 @@ public class AddMessageRequest {
 
     private String context;
 }
+

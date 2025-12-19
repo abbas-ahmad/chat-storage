@@ -33,7 +33,7 @@ public class ChatSession {
     private String name;
 
     @Column(name = "is_favorite", nullable = false)
-    private Boolean isFavorite = false;
+    private boolean isFavorite = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
