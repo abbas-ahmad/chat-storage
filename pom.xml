@@ -121,6 +121,26 @@
 			<artifactId>flyway-core</artifactId>
 			<version>9.22.3</version>
 		</dependency>
+
+	<!-- Micrometer Tracing for distributed tracing -->
+	<dependency>
+		<groupId>io.micrometer</groupId>
+		<artifactId>micrometer-tracing-bridge-brave</artifactId>
+	</dependency>
+
+	<!-- Zipkin reporter (optional - uncomment if you want to export traces to Zipkin) -->
+	<!--
+	<dependency>
+		<groupId>io.zipkin.reporter2</groupId>
+		<artifactId>zipkin-reporter-brave</artifactId>
+	</dependency>
+	-->
+
+	<!-- MDC context propagation -->
+	<dependency>
+		<groupId>io.micrometer</groupId>
+		<artifactId>micrometer-observation</artifactId>
+	</dependency>
 	</dependencies>
 
 	<build>

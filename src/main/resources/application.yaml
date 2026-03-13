@@ -24,6 +24,7 @@ spring:
 security:
   api-key: ${SECURITY_API_KEY:api_9f3b2e7a-4d6c-4a1f-8b2e-123456789abc}
 
+# Actuator and Distributed Tracing Configuration
 management:
   endpoints:
     web:
@@ -32,13 +33,21 @@ management:
   endpoint:
     health:
       show-details: always
+  tracing:
+    sampling:
+      probability: 1.0  # Sample 100% of requests (adjust for production: 0.1 = 10%)
+  # Uncomment below if using Zipkin for trace visualization
+  # zipkin:
+  #   tracing:
+  #     endpoint: ${ZIPKIN_ENDPOINT:http://localhost:9411/api/v2/spans}
 
 logging:
   level:
     root: INFO
     store.chat_storage: DEBUG
+    AUDIT: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [traceId=%X{traceId:-}, spanId=%X{spanId:-}] %-5level %logger{36} - %msg%n"
 
 # OpenAPI/Swagger configuration
 springdoc:
